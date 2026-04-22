@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NexPharm - Premium Pharmacy Dashboard</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <!-- Auth View -->
+    <div id="auth-view" class="auth-container">
+        <div class="auth-card glass-panel">
+            <div class="logo" style="justify-content: center; margin-bottom: 2rem;">
+                <i data-lucide="crosshairs" class="logo-icon"></i>
+                <span class="auth-logo-text">NexPharm</span>
+            </div>
+            <h2 id="auth-title">Login to Dashboard</h2>
+            <form id="auth-form">
+                <input type="text" id="auth-name" placeholder="Full Name (for register)" style="display: none;" class="auth-input">
+                <input type="email" id="auth-email" placeholder="Email Address" required class="auth-input">
+                <input type="password" id="auth-password" placeholder="Password" required class="auth-input">
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-bottom: 1rem;" id="auth-submit-btn">Login</button>
+                <div style="text-align: center;">
+                    <a href="#" id="toggle-auth-mode" style="color: var(--accent-primary); text-decoration: none; font-size: 0.9rem;">Need an account? Register</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="app-container" id="app-container" style="display: none;">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar glass-panel">
+            <div class="logo">
+                <i data-lucide="crosshairs" class="logo-icon"></i>
+                <span>NexPharm</span>
+            </div>
+            
+            <ul class="nav-links">
+                <li class="active" data-view="dashboard">
+                    <i data-lucide="layout-dashboard"></i>
+                    <span>Pos / Dashboard</span>
+                </li>
+                <li data-view="inventory">
+                    <i data-lucide="pill"></i>
+                    <span>Medicines</span>
+                </li>
+                <li data-view="sales">
+                    <i data-lucide="receipt"></i>
+                    <span>Sales Log</span>
+                </li>
+            </ul>
+
+            <div class="user-profile">
+                <div class="avatar">
+                    <i data-lucide="user"></i>
+                </div>
+                <div class="user-info">
+                    <span class="user-name" id="display-user-name">Loading...</span>
+                    <span class="user-role" id="display-user-role">Pharmacist</span>
+                    <a href="#" id="logout-btn" style="color: var(--accent-primary); font-size: 0.8rem; text-decoration: none;">Logout</a>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="top-header">
+                <h1 id="page-title">Point of Sale</h1>
+                <div class="theme-toggle" id="theme-toggle">
+                    <i data-lucide="sun"></i>
+                </div>
+            </header>
+
+            <!-- Views Container -->
+            <div class="view-container">
+                
+                <!-- POS / Dashboard View -->
+                <section id="view-dashboard" class="view active-view">
+                    <div class="pos-layout">
+                        <!-- Medicine Selection -->
+                        <div class="medicine-list-module glass-panel">
+                            <div class="module-header">
+                                <h2>Available Medicines</h2>
+                                <div class="search-bar">
+                                    <i data-lucide="search"></i>
+                                    <input type="text" id="medicine-search" placeholder="Search inventory...">
+                                </div>
+                            </div>
+                            <div class="medicine-grid" id="pos-medicine-grid">
+                                <!-- Medicine cards injected here -->
+                                <div class="loading-spinner"></div>
+                            </div>
+                        </div>
+
+                        <!-- Current Sale Cart -->
+                        <div class="cart-module glass-panel">
+                            <h2>Current Order</h2>
+                            <div class="cart-items" id="cart-items">
+                                <!-- Cart items injected here -->
+                                <div class="empty-cart-msg">Cart is empty. Select medicines.</div>
+                            </div>
+                            <div class="cart-summary">
+                                <div class="summary-line">
+                                    <span>Subtotal</span>
+                                    <span id="cart-subtotal">$0.00</span>
+                                </div>
+                                <div class="summary-line total">
+                                    <span>Total</span>
+                                    <span id="cart-total" class="highlight-text">$0.00</span>
+                                </div>
+                                <button class="btn btn-primary pulse-hover" id="checkout-btn" disabled>
+                                    <i data-lucide="credit-card"></i> Process Sale
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Inventory View -->
+                <section id="view-inventory" class="view">
+                    <div class="table-module glass-panel">
+                        <div class="module-header">
+                            <h2>Medicine Inventory</h2>
+                            <button class="btn btn-secondary" id="open-add-modal-btn">
+                                <i data-lucide="plus"></i> Add New
+                            </button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="premium-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Name</th>
+                                        <th>Category</th>
+                                        <th>Price</th>
+                                        <th>Stock</th>
+                                        <th>Expiry</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="inventory-table-body">
+                                    <!-- Rows injected -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Sales View -->
+                <section id="view-sales" class="view">
+                    <div class="table-module glass-panel">
+                        <div class="module-header">
+                            <h2>Transaction Log</h2>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="premium-table">
+                                <thead>
+                                    <tr>
+                                        <th>Sale ID</th>
+                                        <th>Date</th>
+                                        <th>User ID</th>
+                                        <th>Total Price</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="sales-table-body">
+                                    <!-- Rows injected -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Add Medicine Modal -->
+    <div id="add-medicine-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content glass-panel" style="width: 400px; padding: 2rem; border-radius: 12px; margin: auto;">
+            <div class="module-header" style="margin-bottom: 1.5rem; justify-content: space-between; display: flex;">
+                <h2>Add Medicine</h2>
+                <button type="button" id="close-modal-btn" style="background: none; border: none; color: var(--text-primary); cursor: pointer;"><i data-lucide="x"></i></button>
+            </div>
+            <form id="add-medicine-form">
+                <input type="text" id="med-name" placeholder="Medicine Name" required class="auth-input">
+                <input type="text" id="med-category" placeholder="Category" required class="auth-input">
+                <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                    <input type="number" id="med-price" placeholder="Price ($)" step="0.01" required class="auth-input" style="margin-bottom: 0;">
+                    <input type="number" id="med-quantity" placeholder="Quantity" required class="auth-input" style="margin-bottom: 0;">
+                </div>
+                <input type="date" id="med-expiry" required class="auth-input">
+                <button type="submit" class="btn btn-primary" style="width: 100%;" id="save-med-btn">Save Medicine</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="/static/app.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>
