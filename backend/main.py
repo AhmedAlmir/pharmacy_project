@@ -15,7 +15,7 @@ import os
 import shutil
 import uuid
 
-app = FastAPI(title="Pharmacy ERP Internal API")
+app = FastAPI(title="Elmer's & Partners Pharmacy API")
 
 @app.post("/api/upload")
 async def upload_image(file: UploadFile = File(...)):
@@ -111,6 +111,38 @@ def toggle_user_active(user_id: int, db: Session = Depends(get_db), current_user
     db.refresh(user)
     return user
 
+@app.put("/api/users/{user_id}", response_model=schemas.User)
+def update_user(user_id: int, user_data: schemas.UserBase, db: Session = Depends(get_db), current_user: models.User = Depends(verify_owner)):
+    db_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    db_user.name = user_data.name
+    db_user.email = user_data.email
+    db_user.mobile = user_data.mobile
+    db_user.role = user_data.role
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+@app.delete("/api/users/{user_id}")
+def delete_user(user_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(verify_owner)):
+    db_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if db_user.role.lower() == "owner":
+        raise HTTPException(status_code=400, detail="Owner accounts cannot be deleted")
+    if db_user.id == current_user.id:
+        raise HTTPException(status_code=400, detail="You cannot delete yourself")
+        
+    sales_count = db.query(models.Sale).filter(models.Sale.user_id == user_id).count()
+    if sales_count > 0:
+        raise HTTPException(status_code=400, detail="Cannot delete staff with associated sales. Please deactivate them instead.")
+        
+    db.delete(db_user)
+    db.commit()
+    return {"detail": "User deleted"}
+
 
 # --- MEDICINES & INVENTORY ---
 @app.get("/api/categories", response_model=List[schemas.Category])
@@ -131,6 +163,7 @@ def search_medicines(q: str, db: Session = Depends(get_db), current_user: models
 @app.post("/api/medicines", response_model=schemas.Medicine)
 def add_medicine(medicine: schemas.MedicineCreate, db: Session = Depends(get_db), current_user: models.User = Depends(verify_pharmacist_or_above)):
     db_med = models.Medicine(**medicine.model_dump())
+    db_med.price = float(medicine.sell_price)  # Keep legacy 'price' column in sync
     db.add(db_med)
     db.commit()
     db.refresh(db_med)
@@ -142,8 +175,9 @@ def update_medicine(medicine_id: int, medicine: schemas.MedicineCreate, db: Sess
     if not db_med:
         raise HTTPException(status_code=404, detail="Medicine not found")
     
-    for key, value in medicine.model_dump().items():
+    for key, value in medicine.model_dump(exclude_unset=True).items():
         setattr(db_med, key, value)
+    db_med.price = float(medicine.sell_price)  # Keep legacy 'price' column in sync
         
     db.commit()
     db.refresh(db_med)
@@ -175,6 +209,19 @@ def get_suppliers(db: Session = Depends(get_db), current_user: models.User = Dep
 def create_supplier(supplier: schemas.SupplierCreate, db: Session = Depends(get_db), current_user: models.User = Depends(verify_owner)):
     db_sup = models.Supplier(**supplier.model_dump())
     db.add(db_sup)
+    db.commit()
+    db.refresh(db_sup)
+    return db_sup
+
+@app.put("/api/suppliers/{supplier_id}", response_model=schemas.Supplier)
+def update_supplier(supplier_id: int, supplier: schemas.SupplierCreate, db: Session = Depends(get_db), current_user: models.User = Depends(verify_owner)):
+    db_sup = db.query(models.Supplier).filter(models.Supplier.id == supplier_id).first()
+    if not db_sup:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+    
+    db_sup.name = supplier.name
+    db_sup.company_name = supplier.company_name
+    db_sup.phone = supplier.phone
     db.commit()
     db.refresh(db_sup)
     return db_sup
@@ -320,12 +367,6 @@ def create_purchase(purchase: schemas.PurchaseCreate, db: Session = Depends(get_
 
 
 # --- SALES (CHECKOUT POS) ---
-@app.get("/api/sales/{sale_id}", response_model=schemas.Sale)
-def get_sale(sale_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(verify_pharmacist_or_above)):
-    sale = db.query(models.Sale).filter(models.Sale.id == sale_id).first()
-    if not sale:
-        raise HTTPException(status_code=404, detail="Invoice not found")
-    return sale
 
 @app.post("/api/sales", response_model=schemas.Sale)
 def create_sale(sale: schemas.SaleCreate, db: Session = Depends(get_db), current_user: models.User = Depends(verify_pharmacist_or_above)):

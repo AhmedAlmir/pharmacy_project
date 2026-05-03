@@ -51,6 +51,7 @@ class Medicine(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(300), nullable=False)
+    price = Column(Float, nullable=False, default=0)  # Legacy DB column, kept in sync with sell_price
     cost_price = Column(DECIMAL(10, 2), nullable=False, default=0)
     sell_price = Column(DECIMAL(10, 2), nullable=False, default=0)
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=False)

@@ -147,14 +147,41 @@ function formatMoney(amount) {
 }
 
 // --- DASHBOARD LAYER ---
+let dailyChartInstance = null;
+let monthlyChartInstance = null;
+let breakdownChartInstance = null;
+let topSellersChartInstance = null;
+
+function getChartColors() {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    return {
+        gridColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+        textColor: isDark ? '#94a3b8' : '#64748b',
+        cyan: '#00d0ff',
+        cyanBg: 'rgba(0, 208, 255, 0.15)',
+        green: '#00e58d',
+        greenBg: 'rgba(0, 229, 141, 0.15)',
+        purple: '#a259ff',
+        purpleBg: 'rgba(162, 89, 255, 0.15)',
+        orange: '#ffb300',
+        orangeBg: 'rgba(255, 179, 0, 0.15)',
+        pink: '#ff3366',
+        pinkBg: 'rgba(255, 51, 102, 0.15)',
+    };
+}
+
 async function loadDashboard() {
     try {
         const res = await fetch(`${API_BASE}/dashboard/stats`, { headers: authHeaders() });
         const data = await res.json();
         
+        // Stat Cards
         document.getElementById('dash-revenue').textContent = formatMoney(data.revenue_today);
         document.getElementById('dash-profit').textContent = formatMoney(data.profit_today);
-        document.getElementById('dash-invoices').textContent = data.invoices_today;
+        document.getElementById('dash-cogs').textContent = formatMoney(data.cost_of_goods || 0);
+        document.getElementById('dash-discount').textContent = formatMoney(data.total_discount || 0);
+        document.getElementById('dash-invoices-count').textContent = data.invoices_today;
+        document.getElementById('dash-items-sold').textContent = data.total_items_sold || 0;
         
         // Low Stock
         const lsTbody = document.getElementById('dash-low-stock-table');
@@ -164,7 +191,7 @@ async function loadDashboard() {
                 <td style="color:var(--danger); font-weight:bold;">${m.quantity}</td>
                 <td>${m.min_stock_level}</td>
             </tr>
-        `).join('');
+        `).join('') || '<tr><td colspan="3" style="text-align:center;padding:24px;color:var(--text-secondary);font-size:13px;">No low stock items 🎉</td></tr>';
 
         // Expirations
         const expTbody = document.getElementById('dash-expiry-table');
@@ -174,7 +201,7 @@ async function loadDashboard() {
                 <td>ID: ${b.medicine_id}</td>
                 <td style="color:var(--warning); font-weight:bold;">${b.expiry_date}</td>
             </tr>
-        `).join('');
+        `).join('') || '<tr><td colspan="3" style="text-align:center;padding:24px;color:var(--text-secondary);font-size:13px;">No expiring batches 🎉</td></tr>';
         
         // Recent Sales
         const rsTbody = document.getElementById('dash-recent-sales-table');
@@ -187,7 +214,7 @@ async function loadDashboard() {
                     <td>${s.time}</td>
                     <td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 12px;" onclick="viewSaleDetails(${s.id})">Details</button></td>
                 </tr>
-            `).join('');
+            `).join('') || '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-secondary);font-size:13px;">No sales yet today</td></tr>';
         }
         
         // Recent Returns
@@ -201,25 +228,122 @@ async function loadDashboard() {
                     <td style="color:var(--danger); font-weight:bold;">${formatMoney(r.refund_amount)}</td>
                     <td style="font-size: 12px; color: var(--text-secondary);">${r.date}</td>
                 </tr>
-            `).join('');
+            `).join('') || '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-secondary);font-size:13px;">No returns</td></tr>';
         }
+
+        // --- Build Breakdown Doughnut ---
+        renderBreakdownChart(data);
         
+        // --- Build Top Sellers Chart ---
+        renderTopSellersChart(data.top_sellers || []);
+        
+        // Load daily/monthly reports
         loadDashboardReports();
+        
+        lucide.createIcons();
     } catch(e) {
         console.error(e);
     }
 }
 
-let dailyChartInstance = null;
-let monthlyChartInstance = null;
+function renderBreakdownChart(data) {
+    const ctx = document.getElementById('today-breakdown-chart');
+    if(!ctx) return;
+    if(breakdownChartInstance) breakdownChartInstance.destroy();
+    
+    const c = getChartColors();
+    const revenue = parseFloat(data.revenue_today) || 0;
+    const cogs = parseFloat(data.cost_of_goods) || 0;
+    const profit = parseFloat(data.profit_today) || 0;
+    const discount = parseFloat(data.total_discount) || 0;
+    
+    const hasData = revenue > 0 || cogs > 0 || discount > 0;
+    
+    breakdownChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: hasData ? ['Revenue', 'Cost of Goods', 'Discounts'] : ['No Data'],
+            datasets: [{
+                data: hasData ? [revenue, cogs, discount] : [1],
+                backgroundColor: hasData ? [c.cyan, c.purple, c.orange] : ['rgba(100,100,100,0.15)'],
+                borderColor: hasData ? [c.cyan, c.purple, c.orange] : ['rgba(100,100,100,0.3)'],
+                borderWidth: 2,
+                hoverOffset: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '70%',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        color: c.textColor,
+                        padding: 16,
+                        usePointStyle: true,
+                        pointStyleWidth: 10,
+                        font: { size: 12, family: 'Inter' }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function renderTopSellersChart(topSellers) {
+    const ctx = document.getElementById('top-sellers-chart');
+    if(!ctx) return;
+    if(topSellersChartInstance) topSellersChartInstance.destroy();
+    
+    const c = getChartColors();
+    const labels = topSellers.map(s => s.name);
+    const values = topSellers.map(s => s.qty);
+    const colors = [c.cyan, c.green, c.purple, c.orange, c.pink];
+    
+    topSellersChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels.length ? labels : ['No data'],
+            datasets: [{
+                label: 'Qty Sold',
+                data: values.length ? values : [0],
+                backgroundColor: labels.length ? colors.slice(0, labels.length) : ['rgba(100,100,100,0.15)'],
+                borderColor: labels.length ? colors.slice(0, labels.length) : ['rgba(100,100,100,0.3)'],
+                borderWidth: 2,
+                borderRadius: 8,
+                barPercentage: 0.6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            scales: {
+                x: {
+                    grid: { color: c.gridColor },
+                    ticks: { color: c.textColor, font: { family: 'Inter' } }
+                },
+                y: {
+                    grid: { display: false },
+                    ticks: { color: c.textColor, font: { family: 'Inter', weight: 500 } }
+                }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+}
 
 async function loadDashboardReports() {
     try {
         const res = await fetch(`${API_BASE}/dashboard/reports`, { headers: authHeaders() });
         if(!res.ok) return;
         const data = await res.json();
+        const c = getChartColors();
         
-        // Render Daily Chart
+        // --- Daily Revenue Bar Chart ---
         const dailyCtx = document.getElementById('daily-sales-chart');
         if(dailyCtx) {
             if(dailyChartInstance) dailyChartInstance.destroy();
@@ -235,23 +359,62 @@ async function loadDashboardReports() {
                     datasets: [{
                         label: 'Revenue (EGP)',
                         data: dataPts,
-                        backgroundColor: 'rgba(79, 70, 229, 0.2)',
-                        borderColor: 'rgba(79, 70, 229, 1)',
-                        borderWidth: 1,
-                        borderRadius: 4
+                        backgroundColor: dataPts.map((v, i) => {
+                            const today = new Date().getDate();
+                            return i + 1 === today ? c.cyan : c.cyanBg;
+                        }),
+                        borderColor: c.cyan,
+                        borderWidth: 0,
+                        borderRadius: 6,
+                        barPercentage: 0.7
                     }]
                 },
-                options: { responsive: true, maintainAspectRatio: false }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: c.gridColor },
+                            ticks: {
+                                color: c.textColor,
+                                font: { family: 'Inter' },
+                                callback: v => 'EGP ' + v
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: c.textColor, font: { family: 'Inter', size: 11 } }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(0,0,0,0.8)',
+                            titleFont: { family: 'Inter' },
+                            bodyFont: { family: 'Inter' },
+                            callbacks: {
+                                label: ctx => `Revenue: EGP ${ctx.parsed.y.toFixed(2)}`
+                            }
+                        }
+                    }
+                }
             });
         }
         
-        // Render Monthly Chart
+        // --- Monthly Performance Line Chart with gradient fill ---
         const monthlyCtx = document.getElementById('monthly-sales-chart');
         if(monthlyCtx) {
             if(monthlyChartInstance) monthlyChartInstance.destroy();
             const labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
             const dataPts = new Array(12).fill(0);
             data.monthly.forEach(d => { dataPts[d.month - 1] = d.revenue; });
+            
+            // Create gradient
+            const chartCanvas = monthlyCtx.getContext('2d');
+            const gradient = chartCanvas.createLinearGradient(0, 0, 0, 300);
+            gradient.addColorStop(0, 'rgba(0, 229, 141, 0.3)');
+            gradient.addColorStop(1, 'rgba(0, 229, 141, 0.01)');
             
             monthlyChartInstance = new Chart(monthlyCtx, {
                 type: 'line',
@@ -260,14 +423,48 @@ async function loadDashboardReports() {
                     datasets: [{
                         label: 'Revenue (EGP)',
                         data: dataPts,
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                        borderColor: 'rgba(16, 185, 129, 1)',
-                        borderWidth: 2,
+                        backgroundColor: gradient,
+                        borderColor: c.green,
+                        borderWidth: 3,
                         fill: true,
-                        tension: 0.4
+                        tension: 0.4,
+                        pointBackgroundColor: c.green,
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointRadius: 5,
+                        pointHoverRadius: 8
                     }]
                 },
-                options: { responsive: true, maintainAspectRatio: false }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: c.gridColor },
+                            ticks: {
+                                color: c.textColor,
+                                font: { family: 'Inter' },
+                                callback: v => 'EGP ' + v
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: c.textColor, font: { family: 'Inter' } }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(0,0,0,0.8)',
+                            titleFont: { family: 'Inter' },
+                            bodyFont: { family: 'Inter' },
+                            callbacks: {
+                                label: ctx => `Revenue: EGP ${ctx.parsed.y.toFixed(2)}`
+                            }
+                        }
+                    }
+                }
             });
         }
         
@@ -334,13 +531,10 @@ window.initiateReturnFromSale = function(saleId, medId, maxQty) {
     // Switch to returns tab
     document.querySelector('[data-target="returns"]').click();
     
-    // Pre-fill
+    // Pre-fill and lookup
     setTimeout(() => {
         document.getElementById('return-sale-id').value = saleId;
-        document.getElementById('return-med-id').value = medId;
-        document.getElementById('return-qty').value = maxQty;
-        document.getElementById('return-qty').max = maxQty;
-        document.getElementById('return-qty').focus();
+        document.getElementById('btn-lookup-invoice').click();
     }, 100);
 }
 
@@ -550,8 +744,15 @@ async function loadMedicines() {
                     });
                     
                     if(!res.ok) {
-                        const err = await res.json();
-                        throw new Error(err.detail || "Failed to save medication");
+                        let errMsg = "Failed to save medication";
+                        const contentType = res.headers.get("content-type");
+                        if (contentType && contentType.includes("application/json")) {
+                            const err = await res.json();
+                            errMsg = err.detail || errMsg;
+                        } else {
+                            errMsg = await res.text() || errMsg;
+                        }
+                        throw new Error(errMsg);
                     }
                     
                     document.getElementById('modal-new-medicine').style.display = 'none';
@@ -629,10 +830,37 @@ window.renderManageCategories = function() {
             <td>${c.id}</td>
             <td style="font-weight: 500;">${c.name}</td>
             <td style="text-align: right;">
+                <button class="btn btn-outline" style="padding: 4px 8px; font-size: 12px; color: var(--primary); border-color: var(--primary);" onclick="editCategory(${c.id}, '${c.name.replace(/'/g, "\\'")}')">Edit</button>
                 <button class="btn btn-outline" style="padding: 4px 8px; font-size: 12px; color: var(--danger); border-color: var(--danger);" onclick="deleteCategory(${c.id})">Delete</button>
             </td>
         </tr>
     `).join('');
+}
+
+window.editCategory = async function(id, oldName) {
+    const newName = prompt("Edit classification name:", oldName);
+    if (!newName || newName.trim() === oldName) return;
+    
+    try {
+        const res = await fetch(`${API_BASE}/categories/${id}`, {
+            method: 'PUT',
+            headers: authHeaders(),
+            body: JSON.stringify({ name: newName.trim() })
+        });
+        if(!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail);
+        }
+        openManageCategories(); // reload
+        
+        // Quietly update filters
+        const catRes = await fetch(`${API_BASE}/categories`, { headers: authHeaders() });
+        allCategories = await catRes.json();
+        const catSelect = document.getElementById('med-category-filter');
+        if(catSelect) catSelect.innerHTML = '<option value="">All Classifications</option>' + allCategories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    } catch(e) {
+        alert("Error: " + e.message);
+    }
 }
 
 window.addCategory = async function() {
@@ -682,12 +910,14 @@ window.deleteCategory = async function(id) {
 }
 
 // --- STAFF LAYER ---
+let allUsers = [];
+
 async function loadStaff() {
     try {
         const res = await fetch(`${API_BASE}/users`, { headers: authHeaders() });
-        const users = await res.json();
+        allUsers = await res.json();
         
-        document.getElementById('staff-table-body').innerHTML = users.map(u => `
+        document.getElementById('staff-table-body').innerHTML = allUsers.map(u => `
             <tr>
                 <td>${u.id}</td>
                 <td>${u.name}</td>
@@ -695,10 +925,18 @@ async function loadStaff() {
                 <td><span class="badge badge-warning">${u.role}</span></td>
                 <td>${u.is_active ? '<span class="badge badge-success">Active</span>' : '<span class="badge badge-danger">Disabled</span>'}</td>
                 <td>
-                    <button class="btn btn-outline" onclick="toggleStaff(${u.id})">Toggle Active</button>
+                    <button class="btn btn-outline" style="padding: 4px 8px; font-size: 12px;" onclick="toggleStaff(${u.id})">Toggle Active</button>
+                    <button class="btn btn-outline" style="padding: 4px 8px; font-size: 12px; color: var(--primary); border-color: var(--primary);" onclick="editStaff(${u.id})">Edit</button>
+                    <button class="btn btn-outline" style="padding: 4px 8px; font-size: 12px; color: var(--danger); border-color: var(--danger);" onclick="deleteStaff(${u.id})">Delete</button>
                 </td>
             </tr>
         `).join('');
+        
+        // Bind save staff
+        const saveBtn = document.getElementById('btn-save-staff');
+        if (saveBtn) {
+            saveBtn.onclick = saveStaffChanges;
+        }
     } catch(e) {
         console.error(e);
     }
@@ -710,6 +948,57 @@ window.toggleStaff = async function(id) {
         loadStaff();
     } catch(e) {
         alert("Failed to toggle staff");
+    }
+}
+
+window.editStaff = function(id) {
+    const user = allUsers.find(u => u.id === id);
+    if(!user) return;
+    document.getElementById('staff-edit-id').value = user.id;
+    document.getElementById('staff-edit-name').value = user.name;
+    document.getElementById('staff-edit-email').value = user.email;
+    document.getElementById('staff-edit-phone').value = user.mobile || '';
+    document.getElementById('staff-edit-role').value = user.role;
+    document.getElementById('staff-form-panel').style.display = 'block';
+}
+
+window.deleteStaff = async function(id) {
+    if(!confirm("Are you sure you want to delete this staff member?")) return;
+    try {
+        const res = await fetch(`${API_BASE}/users/${id}`, { method: 'DELETE', headers: authHeaders() });
+        if(!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail);
+        }
+        loadStaff();
+    } catch(e) {
+        alert("Delete error: " + e.message);
+    }
+}
+
+async function saveStaffChanges() {
+    const id = document.getElementById('staff-edit-id').value;
+    const payload = {
+        name: document.getElementById('staff-edit-name').value,
+        email: document.getElementById('staff-edit-email').value,
+        mobile: document.getElementById('staff-edit-phone').value,
+        role: document.getElementById('staff-edit-role').value
+    };
+    
+    try {
+        const res = await fetch(`${API_BASE}/users/${id}`, {
+            method: 'PUT',
+            headers: authHeaders(),
+            body: JSON.stringify(payload)
+        });
+        if(!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail);
+        }
+        document.getElementById('staff-form-panel').style.display = 'none';
+        loadStaff();
+    } catch(e) {
+        alert("Save error: " + e.message);
     }
 }
 
@@ -1069,7 +1358,7 @@ async function initReturns() {
             currentReturnInvoice = sale;
             
             document.getElementById('return-lbl-invoice-id').textContent = sale.id;
-            document.getElementById('return-lbl-date').textContent = new Date(sale.created_at).toLocaleString();
+            document.getElementById('return-lbl-date').textContent = sale.date || new Date().toLocaleString();
             
             // We need medicine names. Let's fetch them if not loaded.
             let meds = [];
@@ -1081,15 +1370,29 @@ async function initReturns() {
             document.getElementById('return-items-table').innerHTML = sale.items.map(item => {
                 const med = meds.find(m => m.id === item.medicine_id);
                 const name = med ? med.name : `Medicine #${item.medicine_id}`;
+                
+                // Calculate how many were already returned
+                let alreadyReturned = 0;
+                if (sale.returns && Array.isArray(sale.returns)) {
+                    sale.returns.forEach(r => {
+                        if (r.medicine_id === item.medicine_id) {
+                            alreadyReturned += r.quantity;
+                        }
+                    });
+                }
+                const refundable = item.quantity - alreadyReturned;
+                
                 return `
                 <tr style="border-bottom: 1px solid var(--border);">
                     <td style="font-weight: 500; padding: 12px 16px;">${name}</td>
                     <td style="text-align: center; padding: 12px 16px;">${item.quantity}</td>
                     <td style="text-align: right; padding: 12px 16px; font-weight: 600;">${formatMoney(item.sell_price)}</td>
                     <td style="text-align: center; padding: 12px 16px;">
-                        <button class="btn btn-outline" style="padding: 4px 12px; font-size: 12px; color: var(--warning); border-color: var(--warning);" onclick="promptReturnItem(${sale.id}, ${item.medicine_id}, ${item.quantity}, '${name.replace(/'/g, "\\'")}')">
+                        ${refundable > 0 ? `
+                        <button class="btn btn-outline" style="padding: 4px 12px; font-size: 12px; color: var(--warning); border-color: var(--warning);" onclick="promptReturnItem(${sale.id}, ${item.medicine_id}, ${refundable})">
                             <i data-lucide="rotate-ccw" style="width:14px;height:14px;"></i> Return
                         </button>
+                        ` : `<span style="font-size: 12px; color: var(--success); font-weight: 500;">Returned</span>`}
                     </td>
                 </tr>
                 `;
@@ -1105,39 +1408,77 @@ async function initReturns() {
     };
 }
 
-window.promptReturnItem = async function(saleId, medId, maxQty, medName) {
-    const qtyStr = prompt(`Returning: ${medName}\nMaximum allowed quantity: ${maxQty}\nEnter quantity to return:`, "1");
-    if(!qtyStr) return;
-    const qty = parseInt(qtyStr);
-    if(isNaN(qty) || qty <= 0 || qty > maxQty) return alert("Invalid quantity");
-    
-    const reason = prompt("Enter return reason (optional):", "");
-    
-    try {
-        const res = await fetch(`${API_BASE}/returns`, {
-            method: 'POST',
-            headers: authHeaders(),
-            body: JSON.stringify({
-                sale_id: saleId,
-                medicine_id: medId,
-                quantity: qty,
-                reason: reason || null
-            })
-        });
-        
-        if(!res.ok) {
-            const data = await res.json();
-            throw new Error(data.detail);
+window.promptReturnItem = async function(saleId, medId, maxQty) {
+    let medName = `Medicine #${medId}`;
+    if (currentReturnInvoice && currentReturnInvoice.items) {
+        const item = currentReturnInvoice.items.find(i => i.medicine_id === medId);
+        if (item && item.medicine_name) {
+            medName = item.medicine_name;
         }
-        
-        const ret = await res.json();
-        alert(`Return Processed Successfully. Refund: ${formatMoney(ret.refund_amount)}`);
-        document.getElementById('btn-lookup-invoice').click();
-        
-    } catch(e) {
-        alert("Return Error: " + e.message);
     }
+    
+    document.getElementById('return-modal-sale-id').value = saleId;
+    document.getElementById('return-modal-med-id').value = medId;
+    document.getElementById('return-modal-max-qty').value = maxQty;
+    document.getElementById('return-modal-med-name').textContent = medName;
+    document.getElementById('return-modal-max-qty-label').textContent = maxQty;
+    document.getElementById('return-modal-qty').value = 1;
+    document.getElementById('return-modal-qty').max = maxQty;
+    document.getElementById('return-modal-reason').value = '';
+    
+    document.getElementById('modal-return-item').style.display = 'flex';
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Bind return confirm button
+    const btnConfirmReturn = document.getElementById('btn-confirm-return');
+    if (btnConfirmReturn) {
+        btnConfirmReturn.onclick = async () => {
+            const saleId = parseInt(document.getElementById('return-modal-sale-id').value);
+            const medId = parseInt(document.getElementById('return-modal-med-id').value);
+            const maxQty = parseInt(document.getElementById('return-modal-max-qty').value);
+            const qty = parseInt(document.getElementById('return-modal-qty').value);
+            const reason = document.getElementById('return-modal-reason').value.trim();
+            
+            if(isNaN(qty) || qty <= 0 || qty > maxQty) {
+                alert("Invalid quantity. Must be between 1 and " + maxQty);
+                return;
+            }
+            
+            btnConfirmReturn.disabled = true;
+            btnConfirmReturn.textContent = "Processing...";
+            
+            try {
+                const res = await fetch(`${API_BASE}/returns`, {
+                    method: 'POST',
+                    headers: authHeaders(),
+                    body: JSON.stringify({
+                        sale_id: saleId,
+                        medicine_id: medId,
+                        quantity: qty,
+                        reason: reason || null
+                    })
+                });
+                
+                if(!res.ok) {
+                    const data = await res.json();
+                    throw new Error(data.detail);
+                }
+                
+                const ret = await res.json();
+                alert(`Return Processed Successfully. Refund: ${formatMoney(ret.refund_amount)}`);
+                document.getElementById('modal-return-item').style.display = 'none';
+                document.getElementById('btn-lookup-invoice').click(); // refresh
+                
+            } catch(e) {
+                alert("Return Error: " + e.message);
+            } finally {
+                btnConfirmReturn.disabled = false;
+                btnConfirmReturn.textContent = "Confirm Return";
+            }
+        };
+    }
+});
 
 // --- VIEW MEDICINE BATCHES ---
 window.viewMedicineBatches = function(medId, medName) {
@@ -1194,12 +1535,13 @@ window.viewMedicineBatches = function(medId, medName) {
 }
 
 // --- SUPPLIERS MANAGEMENT ---
+let allSuppliers = [];
 async function loadSuppliers() {
     try {
         const res = await fetch(`${API_BASE}/suppliers`, { headers: authHeaders() });
-        const suppliers = await res.json();
+        allSuppliers = await res.json();
         
-        document.getElementById('supplier-table-body').innerHTML = suppliers.map(s => `
+        document.getElementById('supplier-table-body').innerHTML = allSuppliers.map(s => `
             <tr>
                 <td>${s.id}</td>
                 <td style="font-weight: 500;">${s.name}</td>
@@ -1207,6 +1549,9 @@ async function loadSuppliers() {
                 <td>${s.phone || '-'}</td>
                 <td style="color: var(--text-secondary); font-size: 13px;">${s.created_at ? new Date(s.created_at).toLocaleDateString() : '-'}</td>
                 <td>
+                    <button class="btn btn-outline" style="padding: 6px 12px; font-size: 12px; color: var(--primary); border-color: var(--primary); margin-right: 8px;" onclick="editSupplier(${s.id})">
+                        <i data-lucide="edit-2" style="width:14px;height:14px;"></i> Edit
+                    </button>
                     <button class="btn btn-outline" style="padding: 6px 12px; font-size: 12px; color: var(--danger); border-color: var(--danger);" onclick="deleteSupplier(${s.id})">
                         <i data-lucide="trash-2" style="width:14px;height:14px;"></i> Remove
                     </button>
@@ -1217,17 +1562,26 @@ async function loadSuppliers() {
         
         // Bind add button
         document.getElementById('btn-add-supplier').onclick = () => {
+            document.getElementById('sup-id').value = '';
+            document.getElementById('sup-name').value = '';
+            document.getElementById('sup-company').value = '';
+            document.getElementById('sup-phone').value = '';
+            document.getElementById('sup-form-title').textContent = 'New Supplier';
             document.getElementById('supplier-form-panel').style.display = 'block';
         };
         
         // Bind save
         document.getElementById('btn-save-supplier').onclick = async () => {
+            const id = document.getElementById('sup-id').value;
             const name = document.getElementById('sup-name').value;
             if(!name) return alert('Supplier name is required');
             
             try {
-                const res = await fetch(`${API_BASE}/suppliers`, {
-                    method: 'POST',
+                const url = id ? `${API_BASE}/suppliers/${id}` : `${API_BASE}/suppliers`;
+                const method = id ? 'PUT' : 'POST';
+                
+                const res = await fetch(url, {
+                    method: method,
                     headers: authHeaders(),
                     body: JSON.stringify({
                         name: name,
@@ -1237,6 +1591,7 @@ async function loadSuppliers() {
                 });
                 if(!res.ok) { const err = await res.json(); throw new Error(err.detail); }
                 document.getElementById('supplier-form-panel').style.display = 'none';
+                document.getElementById('sup-id').value = '';
                 document.getElementById('sup-name').value = '';
                 document.getElementById('sup-company').value = '';
                 document.getElementById('sup-phone').value = '';
@@ -1244,6 +1599,17 @@ async function loadSuppliers() {
             } catch(e) { alert('Error: ' + e.message); }
         };
     } catch(e) { console.error(e); }
+}
+
+window.editSupplier = function(id) {
+    const sup = allSuppliers.find(s => s.id === id);
+    if(!sup) return;
+    document.getElementById('sup-id').value = sup.id;
+    document.getElementById('sup-name').value = sup.name;
+    document.getElementById('sup-company').value = sup.company_name || '';
+    document.getElementById('sup-phone').value = sup.phone || '';
+    document.getElementById('sup-form-title').textContent = 'Edit Supplier';
+    document.getElementById('supplier-form-panel').style.display = 'block';
 }
 
 window.deleteSupplier = async function(id) {

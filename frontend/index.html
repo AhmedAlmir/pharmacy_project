@@ -3,19 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pharmacy ERP System</title>
-    <link rel="stylesheet" href="/static/styles.css">
+    <title>Elmer's & Partners Pharmacy</title>
+    <link rel="stylesheet" href="/static/styles.css?v=3.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chart.js (local) -->
+    <script src="/static/chart.js"></script>
 </head>
 <body>
 
     <!-- Authentication Overlay -->
     <div id="auth-screen" class="auth-wrapper">
         <div class="glass-panel auth-card">
-            <h2 style="text-align: center; margin-bottom: 24px;">ERP Login</h2>
+            <div style="text-align: center; margin-bottom: 24px;">
+                <img src="/static/images/logo.png" alt="Elmer's Pharmacy Logo" style="width: 80px; height: 80px; object-fit: contain; margin-bottom: 16px;">
+                <h2>Elmer's & Partners</h2>
+                <p style="font-size: 14px; margin-top: 4px; font-weight: 500; color: var(--text-secondary);">Pharmacy Management System</p>
+            </div>
             <div id="auth-alert" class="alert-message"></div>
             <form id="login-form">
                 <div class="form-group">
@@ -35,8 +41,8 @@
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="sidebar-brand">
-                <i data-lucide="cross"></i>
-                Pharma ERP
+                <img src="/static/images/logo.png" alt="Elmer's Pharmacy Logo" style="width: 36px; height: 36px; object-fit: contain;">
+                <span>Elmer's <small style="font-weight:400;font-size:12px;display:block;color:var(--text-secondary);margin-top:2px;">& Partners Pharmacy</small></span>
             </div>
             
             <nav>
@@ -77,49 +83,100 @@
             <!-- DASHBOARD -->
             <div id="view-dashboard" class="view-container admin-only-view">
                 
-                <!-- Quick Actions -->
-                <div style="margin-bottom: 32px; display: flex; gap: 16px;">
-                    <button class="btn btn-primary" onclick="document.querySelector('[data-target=\'pos\']').click()" style="display:flex; align-items:center; gap:8px;"><i data-lucide="shopping-cart" style="width:18px;height:18px;"></i> New Sale</button>
-                    <button class="btn btn-outline" onclick="document.querySelector('[data-target=\'medicines\']').click()" style="display:flex; align-items:center; gap:8px;"><i data-lucide="package-plus" style="width:18px;height:18px;"></i> Manage Inventory</button>
-                </div>
-
+                <!-- Stat Cards Row -->
                 <div class="dashboard-grid">
-                    <div class="glass-panel stat-card" style="background: linear-gradient(135deg, rgba(79, 70, 229, 0.1) 0%, rgba(79, 70, 229, 0.02) 100%); border-left: 4px solid var(--primary);">
-                        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div class="stat-card bg-cyan">
+                        <div class="header">
                             <span class="title">Today's Revenue</span>
-                            <div style="padding:10px; background:rgba(79, 70, 229, 0.1); border-radius:12px; color:var(--primary);"><i data-lucide="banknote"></i></div>
+                            <div class="icon-box"><i data-lucide="banknote" style="width:22px;height:22px;"></i></div>
                         </div>
-                        <span class="value" id="dash-revenue">EGP 0.00</span>
+                        <span class="value" id="dash-revenue">EGP 0</span>
+                        <span class="trend up" id="dash-invoices-trend"><i data-lucide="trending-up" style="width:14px;height:14px;"></i> <span id="dash-invoices-count">0</span> invoices</span>
                     </div>
-                    <div class="glass-panel stat-card" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.02) 100%); border-left: 4px solid var(--success);">
-                        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div class="stat-card bg-green">
+                        <div class="header">
                             <span class="title">Net Profit</span>
-                            <div style="padding:10px; background:rgba(16, 185, 129, 0.1); border-radius:12px; color:var(--success);"><i data-lucide="trending-up"></i></div>
+                            <div class="icon-box"><i data-lucide="trending-up" style="width:22px;height:22px;"></i></div>
                         </div>
-                        <span class="value" id="dash-profit">EGP 0.00</span>
+                        <span class="value" id="dash-profit">EGP 0</span>
+                        <span class="trend up"><i data-lucide="arrow-up-right" style="width:14px;height:14px;"></i> <span id="dash-items-sold">0</span> items sold</span>
                     </div>
-                    <div class="glass-panel stat-card" style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(139, 92, 246, 0.02) 100%); border-left: 4px solid #8b5cf6;">
-                        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                            <span class="title">Invoices Today</span>
-                            <div style="padding:10px; background:rgba(139, 92, 246, 0.1); border-radius:12px; color:#8b5cf6;"><i data-lucide="receipt"></i></div>
+                    <div class="stat-card bg-purple">
+                        <div class="header">
+                            <span class="title">Cost of Goods</span>
+                            <div class="icon-box"><i data-lucide="package" style="width:22px;height:22px;"></i></div>
                         </div>
-                        <span class="value" id="dash-invoices">0</span>
+                        <span class="value" id="dash-cogs">EGP 0</span>
+                        <span class="trend up"><i data-lucide="bar-chart-3" style="width:14px;height:14px;"></i> Today's COGS</span>
+                    </div>
+                    <div class="stat-card bg-orange">
+                        <div class="header">
+                            <span class="title">Total Discounts</span>
+                            <div class="icon-box"><i data-lucide="percent" style="width:22px;height:22px;"></i></div>
+                        </div>
+                        <span class="value" id="dash-discount">EGP 0</span>
+                        <span class="trend up"><i data-lucide="receipt" style="width:14px;height:14px;"></i> Savings given</span>
                     </div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
-                    <div class="glass-panel">
-                        <h3><i data-lucide="alert-triangle" style="color: var(--danger)"></i> Low Stock Alerts</h3>
-                        <div class="table-container" style="margin-top: 16px;">
+                <!-- Charts Row 1: Revenue Bar + Doughnut -->
+                <div class="charts-grid" style="margin-bottom: 24px;">
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <span class="chart-title"><i data-lucide="bar-chart-3" style="width:18px;height:18px;vertical-align:middle;color:var(--primary);margin-right:8px;"></i>Daily Revenue (This Month)</span>
+                        </div>
+                        <div style="position: relative; height: 300px;">
+                            <canvas id="daily-sales-chart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <span class="chart-title"><i data-lucide="pie-chart" style="width:18px;height:18px;vertical-align:middle;color:var(--secondary);margin-right:8px;"></i>Today's Breakdown</span>
+                        </div>
+                        <div style="position: relative; height: 300px; display: flex; align-items: center; justify-content: center;">
+                            <canvas id="today-breakdown-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Row 2: Monthly Line + Top Sellers -->
+                <div class="charts-grid" style="margin-bottom: 24px;">
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <span class="chart-title"><i data-lucide="line-chart" style="width:18px;height:18px;vertical-align:middle;color:var(--success);margin-right:8px;"></i>Monthly Performance (This Year)</span>
+                        </div>
+                        <div style="position: relative; height: 300px;">
+                            <canvas id="monthly-sales-chart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <span class="chart-title"><i data-lucide="trophy" style="width:18px;height:18px;vertical-align:middle;color:var(--warning);margin-right:8px;"></i>Top Selling Medicines</span>
+                        </div>
+                        <div style="position: relative; height: 300px;">
+                            <canvas id="top-sellers-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Alerts Row -->
+                <div class="charts-grid equal" style="margin-bottom: 24px;">
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <span class="chart-title"><i data-lucide="alert-triangle" style="width:18px;height:18px;vertical-align:middle;color:var(--danger);margin-right:8px;"></i>Low Stock Alerts</span>
+                        </div>
+                        <div class="table-container" style="border: none; box-shadow: none;">
                             <table>
                                 <thead><tr><th>Name</th><th>Current Stock</th><th>Min Required</th></tr></thead>
                                 <tbody id="dash-low-stock-table"></tbody>
                             </table>
                         </div>
                     </div>
-                    <div class="glass-panel">
-                        <h3><i data-lucide="calendar-clock" style="color: var(--warning)"></i> Expiring Soon (1 Month)</h3>
-                        <div class="table-container" style="margin-top: 16px;">
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <span class="chart-title"><i data-lucide="calendar-clock" style="width:18px;height:18px;vertical-align:middle;color:var(--warning);margin-right:8px;"></i>Expiring Soon (1 Month)</span>
+                        </div>
+                        <div class="table-container" style="border: none; box-shadow: none;">
                             <table>
                                 <thead><tr><th>Batch</th><th>Medicine ID</th><th>Expiry Date</th></tr></thead>
                                 <tbody id="dash-expiry-table"></tbody>
@@ -128,34 +185,24 @@
                     </div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px;">
-                    <div class="glass-panel">
-                        <h3><i data-lucide="bar-chart-3" style="color: var(--primary)"></i> Daily Sales (Current Month)</h3>
-                        <div style="margin-top: 16px; position: relative; height: 300px; width: 100%;">
-                            <canvas id="daily-sales-chart"></canvas>
+                <!-- Recent Activity Row -->
+                <div class="charts-grid equal">
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <span class="chart-title"><i data-lucide="activity" style="width:18px;height:18px;vertical-align:middle;color:var(--primary);margin-right:8px;"></i>Recent Sales</span>
                         </div>
-                    </div>
-                    <div class="glass-panel">
-                        <h3><i data-lucide="line-chart" style="color: var(--success)"></i> Monthly Sales (Current Year)</h3>
-                        <div style="margin-top: 16px; position: relative; height: 300px; width: 100%;">
-                            <canvas id="monthly-sales-chart"></canvas>
-                        </div>
-                    </div>
-                </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px;">
-                    <div class="glass-panel">
-                        <h3><i data-lucide="activity" style="color: var(--primary)"></i> Recent Activity (Sales)</h3>
-                        <div class="table-container" style="margin-top: 16px;">
+                        <div class="table-container" style="border: none; box-shadow: none;">
                             <table>
                                 <thead><tr><th>ID</th><th>Total Price</th><th>Pharmacist</th><th>Time</th><th>Action</th></tr></thead>
                                 <tbody id="dash-recent-sales-table"></tbody>
                             </table>
                         </div>
                     </div>
-                    <div class="glass-panel">
-                        <h3><i data-lucide="rotate-ccw" style="color: var(--warning)"></i> Recent Returns</h3>
-                        <div class="table-container" style="margin-top: 16px;">
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <span class="chart-title"><i data-lucide="rotate-ccw" style="width:18px;height:18px;vertical-align:middle;color:var(--warning);margin-right:8px;"></i>Recent Returns</span>
+                        </div>
+                        <div class="table-container" style="border: none; box-shadow: none;">
                             <table>
                                 <thead><tr><th>Sale ID</th><th>Medicine</th><th>Qty</th><th>Refund</th><th>Date</th></tr></thead>
                                 <tbody id="dash-recent-returns-table"></tbody>
@@ -381,9 +428,10 @@
                         <button class="btn btn-primary" id="btn-add-supplier" style="padding: 12px 24px;"><i data-lucide="plus"></i> Add Supplier</button>
                     </div>
                     
-                    <!-- Add Supplier Form (hidden by default) -->
+                    <!-- Add/Edit Supplier Form (hidden by default) -->
                     <div id="supplier-form-panel" style="display: none; border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 24px; background: var(--bg-main);">
-                        <h4 style="margin-bottom: 16px;">New Supplier</h4>
+                        <h4 id="sup-form-title" style="margin-bottom: 16px;">New Supplier</h4>
+                        <input type="hidden" id="sup-id">
                         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
                             <div class="form-group" style="margin-bottom: 0;">
                                 <label>Contact Name</label>
@@ -479,6 +527,38 @@
             <div id="view-staff" class="view-container admin-only-view">
                 <div class="glass-panel">
                     <h3>Manage Employees</h3>
+                    
+                    <div id="staff-form-panel" style="display: none; border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-top: 16px; margin-bottom: 24px; background: var(--bg-main);">
+                        <h4 style="margin-bottom: 16px;">Edit Staff</h4>
+                        <input type="hidden" id="staff-edit-id">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label>Name</label>
+                                <input type="text" id="staff-edit-name" required>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label>Email</label>
+                                <input type="email" id="staff-edit-email" required>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label>Phone</label>
+                                <input type="text" id="staff-edit-phone">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label>Role</label>
+                                <select id="staff-edit-role">
+                                    <option value="Pharmacist">Pharmacist</option>
+                                    <option value="Manager">Manager</option>
+                                    <option value="Admin">Admin</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 12px; margin-top: 16px;">
+                            <button class="btn btn-outline" onclick="document.getElementById('staff-form-panel').style.display='none'">Cancel</button>
+                            <button class="btn btn-primary" id="btn-save-staff">Save Changes</button>
+                        </div>
+                    </div>
+
                     <div class="table-container" style="margin-top: 16px;">
                         <table>
                             <thead>
@@ -713,8 +793,44 @@
         </div>
     </div>
 
+    </div>
+
+    <!-- Return Item Modal -->
+    <div class="modal" id="modal-return-item" style="display: none;">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3>Process Return</h3>
+                <button class="btn btn-outline" style="border: none; padding: 4px;" onclick="document.getElementById('modal-return-item').style.display='none'">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div style="padding: 24px;">
+                <p style="margin-bottom: 16px; color: var(--text-secondary);">Returning: <strong id="return-modal-med-name" style="color: var(--text-main);">...</strong></p>
+                
+                <input type="hidden" id="return-modal-sale-id">
+                <input type="hidden" id="return-modal-med-id">
+                <input type="hidden" id="return-modal-max-qty">
+                
+                <div class="form-group">
+                    <label>Quantity to Return (Max: <span id="return-modal-max-qty-label"></span>)</label>
+                    <input type="number" id="return-modal-qty" min="1" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Reason (Optional)</label>
+                    <input type="text" id="return-modal-reason" placeholder="e.g. Customer changed mind">
+                </div>
+                
+                <div style="display: flex; gap: 12px; margin-top: 24px;">
+                    <button class="btn btn-outline" style="flex: 1;" onclick="document.getElementById('modal-return-item').style.display='none'">Cancel</button>
+                    <button class="btn btn-primary" style="flex: 1;" id="btn-confirm-return">Confirm Return</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script>lucide.createIcons();</script>
-    <script src="/static/app.js"></script>
+    <script src="/static/app.js?v=3.0"></script>
 </body>
 </html>
